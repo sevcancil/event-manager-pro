@@ -29,6 +29,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $sql = "INSERT INTO guests (event_id, full_name, email, phone, qr_code) VALUES (?, ?, ?, ?, ?)";
                 $db->query($sql, [$event['id'], $fullName, $email, $phone, $qrString]);
+                
+                // -------------------------------------------------------------
+                // BURASI YENİ EKLENDİ: MAİL GÖNDERME İŞLEMİ
+                // -------------------------------------------------------------
+                // Dosya yolunu kontrol et: views/frontend/register.php içindeyiz,
+                // bu yüzden iki üst klasöre çıkıp src'ye giriyoruz.
+                $mailServicePath = __DIR__ . '/../../src/MailService.php';
+                
+                // ...
+                if (file_exists($mailServicePath)) {
+                    require_once $mailServicePath;
+                    
+                    // $qrString değişkeni zaten yukarıda oluşturulmuştu
+                    // Yeni parametre olarak $qrString'i en sona ekliyoruz:
+                    sendWelcomeEmail($email, $fullName, $event, $qrString);
+                }
+                // ...
+                // -------------------------------------------------------------
+                // MAİL İŞLEMİ BİTİŞ
+                // -------------------------------------------------------------
+
                 $_SESSION['guest_id'] = $db->lastInsertId();
                 $_SESSION['guest_name'] = $fullName;
                 $showTicket = true;
@@ -41,6 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ];
 
             } catch (Exception $e) {
+                // Hata detayını görmek istersen: $e->getMessage()
                 $error = "Kayıt sırasında teknik bir hata oluştu.";
             }
         }

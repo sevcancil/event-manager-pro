@@ -4,14 +4,17 @@
 $settings = json_decode($event['settings_json'], true);
 $primaryColor = $settings['primary_color'] ?? '#0d6efd';
 
-// Google Takvim Linki
+// Google Takvim Linki (Düzeltilmiş)
 $gTitle = urlencode($event['title']);
 $gDetails = urlencode("Etkinlik Detayları: " . $event['description']);
 $gLocation = urlencode($event['location']);
-$gStart = gmdate('Ymd\THis\Z', strtotime($event['event_date']));
-$gEnd = gmdate('Ymd\THis\Z', strtotime($event['event_date'] . ' +4 hours'));
-$googleCalLink = "https://calendar.google.com/calendar/render?action=TEMPLATE&text=$gTitle&dates=$gStart/$gEnd&details=$gDetails&location=$gLocation";
 
+// 1. DEĞİŞİKLİK: 'gmdate' yerine 'date' yapıyoruz ve sondaki '\Z' ifadesini siliyoruz.
+$gStart = date('Ymd\THis', strtotime($event['event_date']));
+$gEnd = date('Ymd\THis', strtotime($event['event_date'] . ' +4 hours'));
+
+// 2. DEĞİŞİKLİK: Linkin en sonuna '&ctz=Europe/Istanbul' ekliyoruz.
+$googleCalLink = "https://calendar.google.com/calendar/render?action=TEMPLATE&text=$gTitle&dates=$gStart/$gEnd&details=$gDetails&location=$gLocation&ctz=Europe/Istanbul";
 // --- RESİM YOLLARINI DÜZELTME (GARANTİLİ YÖNTEM) ---
 // Şu anki scriptin çalıştığı klasörü bul (örn: /event-manager-pro/public)
 $baseFolder = dirname($_SERVER['SCRIPT_NAME']);
@@ -73,14 +76,14 @@ if (isset($settings['custom_logo_path']) && !empty($settings['custom_logo_path']
 
     <div class="hero-section">
         
+        <?php if($logoSrc): ?>
+             <img src="<?= $logoSrc ?>" class="hero-logo mb-3" alt="Logo">
+        <?php endif; ?>
+
         <?php if($bannerSrc): ?>
             <div class="mb-4 animate__animated animate__fadeInDown">
                 <img src="<?= $bannerSrc ?>" class="hero-banner" alt="Etkinlik Banner">
             </div>
-        <?php endif; ?>
-
-        <?php if($logoSrc): ?>
-             <img src="<?= $logoSrc ?>" class="hero-logo mb-3" alt="Logo">
         <?php endif; ?>
 
         <h1 class="display-5 fw-bold mt-2"><?= htmlspecialchars($event['title']) ?></h1>
