@@ -1,0 +1,90 @@
+/* public/assets/css/style.css */
+
+/* 1. Genel Sayfa Ayarları (Karanlık Mod) */
+body {
+    background-color: #111;
+    color: white;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    min-height: 100vh;
+}
+
+/* 2. Dinamik İkon Rengi */
+/* Sayfada tanımladığımız --theme-color değişkenini kullanır */
+i, .fa-solid, .fa-regular, .fa-brands {
+    color: var(--theme-color, #0d6efd); /* Varsayılan mavi */
+}
+
+/* İkonun yanındaki metinler için özel sınıf */
+.text-theme {
+    color: var(--theme-color, #0d6efd);
+    font-weight: bold;
+}
+
+/* 3. Bootstrap Override (Karanlık modda text-muted görünmüyor diye) */
+.text-muted {
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* 4. Timeline (Akış) Stilleri */
+.timeline-item {
+    border-left: 2px solid var(--theme-color);
+    padding-left: 20px;
+    margin-left: 10px;
+    padding-bottom: 30px;
+    position: relative;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -6px; top: 0;
+    width: 10px; height: 10px;
+    background: var(--theme-color);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--theme-color);
+}
+
+.time-badge {
+    font-weight: bold;
+    color: var(--theme-color);
+    margin-bottom: 5px;
+    display: block;
+    font-size: 1.1rem;
+}
+
+/* 5. Alt Menü (Bottom Nav) Stilleri */
+body { padding-bottom: 80px; } /* Menü payı */
+
+.bottom-nav {
+    position: fixed; bottom: 0; left: 0; width: 100%;
+    background: rgba(20, 20, 20, 0.95);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    display: flex; justify-content: space-around;
+    padding: 12px 0;
+    z-index: 9999;
+}
+
+.nav-btn {
+    color: #888; text-decoration: none; text-align: center; font-size: 0.7rem;
+    display: flex; flex-direction: column; align-items: center; width: 25%;
+    transition: 0.2s;
+    background: none; border: none; /* Button reset */
+}
+
+.nav-btn i {
+    font-size: 1.4rem; margin-bottom: 4px;
+    color: #666; /* Pasif ikon rengi */
+    transition: 0.2s;
+}
+
+/* Aktif menü elemanı */
+.nav-btn.active {
+    color: var(--theme-color);
+    transform: translateY(-3px);
+}
+
+.nav-btn.active i {
+    color: var(--theme-color);
+    filter: drop-shadow(0 0 5px var(--theme-color));
+}

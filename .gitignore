@@ -1,0 +1,11 @@
+# Veritabanı ayarlarını gizle (Şifreler var!)
+config/database.php
+
+# Yüklenen fotoğrafları gizle (Depoyu şişirmesin)
+public/uploads/*
+!public/uploads/.gitkeep
+
+# Gereksiz sistem dosyaları
+.DS_Store
+Thumbs.db
+vendor/
