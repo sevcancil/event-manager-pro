@@ -54,7 +54,7 @@ function sendWelcomeEmail($userEmail, $userName, $eventDetails, $ticketCode) {
             )
         );
 
-        $mail->setFrom('info@sevcancil.com', 'Etkinlik Yönetimi'); 
+        $mail->setFrom('info@domain.com', 'Etkinlik Yönetimi'); 
         $mail->addAddress($userEmail, $userName);
 
         // -----------------------------------------------------------------------
