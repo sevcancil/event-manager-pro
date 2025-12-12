@@ -5,7 +5,6 @@
 Misafir kaydından QR kodlu girişe, canlı fotoğraf duvarından (Live Wall) interaktif oylamalara kadar bir etkinliğin ihtiyaç duyduğu tüm dijital araçları tek bir çatıda toplar.
 
 ![Event Manager Pro Banner](public/assets/img/proje.png)
-*(Buraya projenizin ekran görüntüsünü veya logosunu koyabilirsiniz)*
 
 ## 🌟 Öne Çıkan Özellikler
 
