@@ -99,6 +99,7 @@ Bu proje aşağıdaki teknolojiler kullanılarak geliştirilmiştir:
 
 ## 📂 Klasör Yapısı
 
+```text
 event-manager-pro/
 ├── config/
 │   ├── config.php
@@ -162,8 +163,9 @@ event-manager-pro/
 ├── index.php
 ├── logout.php
 └── README.md
----
 
+```
+---
 ## 📄 Lisans
 
 Bu proje açık kaynaklıdır. Ticari kullanım için geliştirici ile iletişime geçiniz.
