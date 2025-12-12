@@ -162,7 +162,6 @@ event-manager-pro/
 ├── index.php
 ├── logout.php
 └── README.md
-
 ---
 
 ## 📄 Lisans
