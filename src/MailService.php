@@ -38,7 +38,7 @@ function sendWelcomeEmail($userEmail, $userName, $eventDetails, $ticketCode) {
         $mail->isSMTP();
         $mail->Host       = 'localhost'; 
         $mail->SMTPAuth   = true;
-        $mail->Username   = 'info@sevcancil.com';    
+        $mail->Username   = 'info@domain.com';    
         $mail->Password   = 'ŞİFRENİ_BURAYA_YAZ'; // <-- BURAYA ŞİFRENİ YAZMAYI UNUTMA!
         
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS; 
