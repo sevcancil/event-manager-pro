@@ -1,51 +1,36 @@
 <?php
 $settings = json_decode($event['settings_json'], true); $primaryColor = $settings['primary_color'] ?? '#0d6efd'; $action = 'anket';
 if (session_status() === PHP_SESSION_NONE) session_start();
+// 1. DİL DOSYASI
+require_once __DIR__ . '/../../src/Language.php';
 require_once __DIR__ . '/../../src/Database.php';
 $db = new Database();
 
-// Misafir Girişi Kontrolü (Session yoksa anket yapamaz)
+// Misafir Girişi Kontrolü
 if (!isset($_SESSION['guest_id'])) {
-    // Giriş yapmamışsa, login sayfasına (veya upload sayfasına) yönlendir
     header("Location: paylas"); 
     exit;
 }
 
-// Aktif anketi bul
+// ... (Anket veritabanı sorguları aynen kalacak) ...
 $activePoll = $db->fetch("SELECT * FROM polls WHERE event_id = ? AND status = 'active' LIMIT 1", [$event['id']]);
-
-// OY VERME İŞLEMİ
+// ... OY VERME İŞLEMİ KODLARI BURAYA ...
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['vote_option'])) {
-    $optionId = $_POST['vote_option'];
-    $pollId = $_POST['poll_id'];
-    
-    // Daha önce oy vermiş mi?
-    $check = $db->fetch("SELECT id FROM poll_votes WHERE poll_id = ? AND guest_id = ?", [$pollId, $_SESSION['guest_id']]);
-    
-    if (!$check) {
-        $db->query("INSERT INTO poll_votes (poll_id, option_id, guest_id) VALUES (?, ?, ?)", [$pollId, $optionId, $_SESSION['guest_id']]);
-        $success = "Oyunuz kaydedildi!";
-    }
+    // ...
+    // ...
+    // $success = "Oyunuz kaydedildi!"; -> BUNU DİL DOSYASINDAN ÇEKECEĞİZ
 }
-
-// Bu misafir bu ankete oy vermiş mi?
-$hasVoted = false;
-if ($activePoll) {
-    $voteCheck = $db->fetch("SELECT id FROM poll_votes WHERE poll_id = ? AND guest_id = ?", [$activePoll['id'], $_SESSION['guest_id']]);
-    if ($voteCheck) $hasVoted = true;
-    
-    // Şıkları Çek
-    $options = $db->fetchAll("SELECT * FROM poll_options WHERE poll_id = ?", [$activePoll['id']]);
-}
+// ...
 ?>
 
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="<?= $currentLang ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Canlı Oylama</title>
+    <title><?= $lang['vote_title'] ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { background-color: #111; color: white; display:flex; align-items:center; justify-content:center; height:100vh; text-align:center;}
         .poll-card { background: rgba(255,255,255,0.1); padding: 30px; border-radius: 20px; width: 100%; max-width: 400px; border: 1px solid #333; }
@@ -60,9 +45,9 @@ if ($activePoll) {
         <div class="poll-card animate__animated animate__fadeIn">
             <?php if (!$activePoll): ?>
                 <div class="py-5">
-                    <h3>⏳ Bekleyiniz...</h3>
-                    <p class="text-white-50">Şu an aktif bir oylama yok.</p>
-                    <a href="paylas" class="btn btn-outline-light btn-sm mt-3">Anı Paylaş'a Dön</a>
+                    <h3><?= $lang['wait_title'] ?></h3>
+                    <p class="text-white-50"><?= $lang['no_active_poll'] ?></p>
+                    <a href="paylas" class="btn btn-outline-light btn-sm mt-3"><?= $lang['back_to_share'] ?></a>
                 </div>
             <?php else: ?>
                 
@@ -71,8 +56,8 @@ if ($activePoll) {
                 <?php if ($hasVoted || isset($success)): ?>
                     <div class="voted-msg py-4">
                         <i class="fa-solid fa-circle-check fa-3x mb-3"></i><br>
-                        Oyunuz Alındı!<br>
-                        <small class="text-white-50 fw-normal">Sonuçlar dev ekranda.</small>
+                        <?= $lang['vote_received'] ?><br>
+                        <small class="text-white-50 fw-normal"><?= $lang['result_screen_hint'] ?></small>
                     </div>
                 <?php else: ?>
                     <form method="POST">

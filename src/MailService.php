@@ -14,69 +14,80 @@ function sendWelcomeEmail($userEmail, $userName, $eventDetails, $ticketCode) {
 
     try {
         // -----------------------------------------------------------------------
-        // 1. OTOMATİK ADRES ALGILAMA (SİHİRLİ KISIM)
+        // 1. ADRES AYARLARI (DÜZELTİLDİ: /public EKLENDİ)
         // -----------------------------------------------------------------------
-        // http mi https mi?
         $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http");
-        // Domain adı ne? (localhost veya siteadi.com)
         $domain = $_SERVER['HTTP_HOST'];
         
-        // Eğer proje bir alt klasördeyse (örn: localhost/projem) burayı manuel düzeltebilirsin
-        // Şimdilik ana domaini alıyoruz:
-        $baseUrl = "$protocol://$domain"; 
+        // ÖNEMLİ: URL yapısını senin istediğin formata sabitledik:
+        // http://domain.com/public
+        $baseUrl = "$protocol://$domain/public"; 
 
-        // ÖNEMLİ NOT: Eğer localhost/proje_adi içinde çalışıyorsan linkler kırık olabilir.
-        // O yüzden Localhost'ta çalışırken proje klasörünü eklemek gerekebilir:
-        // $baseUrl = "$protocol://$domain/PROJE_KLASOR_ADIN"; <-- Gerekirse bunu aç
-
-        // 2. DİNAMİK LİNKLER
-        // Bilet Sayfası (Kullanıcı koduyla gider)
-        $ticketLink = "$baseUrl/frontend/ticket.php?code=$ticketCode";
+        $eventSlug = !empty($eventDetails['slug']) ? $eventDetails['slug'] : $eventDetails['id'];
         
-        // Etkinlik Sayfası (Slug veya ID ile gider)
-        // Eğer eventDetails içinde 'slug' varsa onu, yoksa ID'yi kullan
-        $eventSlug = $eventDetails['slug'] ?? $eventDetails['id']; 
-        $eventLink  = "$baseUrl/$eventSlug";
+        // İSTEDİĞİN LİNKLER:
+        // 1. Biletim: .../public/etkinlik-adi/biletim?code=...
+        $ticketLink = "$baseUrl/$eventSlug/biletim?code=$ticketCode";
+        
+        // 2. Etkinlik Sayfası (Program): .../public/etkinlik-adi/program
+        $eventLink  = "$baseUrl/$eventSlug/program";
 
         // -----------------------------------------------------------------------
-        // SUNUCU / GMAIL AYARLARI
+        // 2. SMTP AYARLARI (TURHOST UYUMLU)
         // -----------------------------------------------------------------------
-        // NOT: Sunucuda GMAIL çalışmazsa, hosting firmanın verdiği info@ mailini kullanmalısın.
-        
         $mail->isSMTP();
-        $mail->Host       = 'smtp.gmail.com';           
+        $mail->Host       = 'localhost'; 
         $mail->SMTPAuth   = true;
-        $mail->Username   = 'sevcancil.dev@gmail.com';    // Gmail adresin
-        $mail->Password   = 'slpm qpep nrct wcpm';      // 16 haneli uygulama şifresi
+        $mail->Username   = 'info@sevcancil.com';    
+        $mail->Password   = 'ŞİFRENİ_BURAYA_YAZ'; // <-- BURAYA ŞİFRENİ YAZMAYI UNUTMA!
+        
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS; 
         $mail->Port       = 587;                        
         $mail->CharSet    = 'UTF-8';
 
-        $mail->setFrom($mail->Username, 'Etkinlik Yönetimi'); 
+        // Sertifika hatasını önleyen ayar
+        $mail->SMTPOptions = array(
+            'ssl' => array(
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+                'allow_self_signed' => true
+            )
+        );
+
+        $mail->setFrom('info@sevcancil.com', 'Etkinlik Yönetimi'); 
         $mail->addAddress($userEmail, $userName);
 
         // -----------------------------------------------------------------------
-        // TAKVİM LİNKLERİ
+        // 3. TARİH VE TAKVİM LİNKLERİ
         // -----------------------------------------------------------------------
         $gTitle = urlencode($eventDetails['title']);
-        $gDetails = urlencode("Etkinlik Detayları: " . $eventDetails['description']);
+        $gDetails = urlencode("Etkinlik Detayları: " . ($eventDetails['description'] ?? ''));
         $gLocation = urlencode($eventDetails['location']);
         
         $startTimestamp = strtotime($eventDetails['event_date']);
-        $endTimestamp   = strtotime($eventDetails['event_date'] . ' +4 hours');
+        if (!empty($eventDetails['event_end_date'])) {
+            $endTimestamp = strtotime($eventDetails['event_end_date']);
+        } else {
+            $endTimestamp = strtotime($eventDetails['event_date'] . ' +4 hours');
+        }
 
-        // Google (Local Time)
         $gStart = date('Ymd\THis', $startTimestamp);
         $gEnd   = date('Ymd\THis', $endTimestamp);
         $googleLink = "https://calendar.google.com/calendar/render?action=TEMPLATE&text=$gTitle&dates=$gStart/$gEnd&details=$gDetails&location=$gLocation&ctz=Europe/Istanbul";
 
-        // Outlook (UTC - ZULU)
         $oStart = gmdate('Y-m-d\TH:i:s\Z', $startTimestamp); 
         $oEnd   = gmdate('Y-m-d\TH:i:s\Z', $endTimestamp);
-        $outlookLink = "https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent&startdt=$oStart&enddt=$oEnd&subject=$gTitle&body=$gDetails&location=$gLocation";
+        $outlookWebLink = "https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent&startdt=$oStart&enddt=$oEnd&subject=$gTitle&body=$gDetails&location=$gLocation";
 
         // -----------------------------------------------------------------------
-        // HTML İÇERİK
+        // 4. ICS DOSYASI (EK)
+        // -----------------------------------------------------------------------
+        $icsContent = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//EtkinlikYonetimi//TR\r\nMETHOD:PUBLISH\r\nBEGIN:VEVENT\r\nUID:" . md5(uniqid(mt_rand(), true)) . "@" . $domain . "\r\nDTSTAMP:" . gmdate('Ymd\THis\Z') . "\r\nDTSTART:" . gmdate('Ymd\THis\Z', $startTimestamp) . "\r\nDTEND:" . gmdate('Ymd\THis\Z', $endTimestamp) . "\r\nSUMMARY:" . $eventDetails['title'] . "\r\nDESCRIPTION:" . ($eventDetails['description'] ?? '') . "\r\nLOCATION:" . $eventDetails['location'] . "\r\nEND:VEVENT\r\nEND:VCALENDAR";
+
+        $mail->addStringAttachment($icsContent, 'invite.ics', 'base64', 'text/calendar');
+
+        // -----------------------------------------------------------------------
+        // 5. HTML İÇERİK
         // -----------------------------------------------------------------------
         $mail->isHTML(true);
         $mail->Subject = 'Kaydınız Başarıyla Alındı! - ' . $eventDetails['title'];
@@ -93,16 +104,26 @@ function sendWelcomeEmail($userEmail, $userName, $eventDetails, $ticketCode) {
             </div>
 
             <div style='text-align: center; margin: 30px 0;'>
-                <a href='$ticketLink' style='background-color: #198754; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;'>🎫 Biletini Görüntüle</a>
+                <a href='$ticketLink' style='background-color: #198754; color: white; padding: 14px 28px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;'>🎫 Biletini Görüntüle</a>
             </div>
 
-            <p style='text-align: center;'>Veya etkinlik sayfasına gitmek için <a href='$eventLink'>tıklayın</a>.</p>
+            <p style='text-align: center;'>Etkinlik programına gitmek için <a href='$eventLink'>tıklayın</a>.</p>
 
-            <div style='text-align: center; margin-top: 20px;'>
-                <a href='$googleLink' style='margin-right:10px; color:#4285F4; text-decoration:none;'>Google Takvime Ekle</a> | 
-                <a href='$outlookLink' style='margin-left:10px; color:#0078D4; text-decoration:none;'>Outlook Takvime Ekle</a>
+            <div style='background-color: #eef4fc; padding: 15px; border-radius: 8px; text-align: center; margin-top: 20px;'>
+                <p style='margin:0 0 10px 0; font-weight:bold; color:#333;'>Takviminize Ekleyin:</p>
+                
+                <a href='$googleLink' style='display:inline-block; margin:5px; color:#4285F4; text-decoration:none; font-weight:bold;'>
+                    <span style='font-size:18px;'>G</span> Google Takvim
+                </a> 
+                | 
+                <a href='$outlookWebLink' style='display:inline-block; margin:5px; color:#0078D4; text-decoration:none; font-weight:bold;'>
+                    <span style='font-size:18px;'>O</span> Outlook Web
+                </a>
+                
+                <p style='font-size: 11px; color: #666; margin-top: 10px;'>
+                    * Outlook Masaüstü veya Apple Takvim için ekteki <strong>'invite.ics'</strong> dosyasını kullanabilirsiniz.
+                </p>
             </div>
-            
             <hr style='margin-top: 30px; border: 0; border-top: 1px solid #eee;'>
         </div>
         ";
@@ -114,8 +135,6 @@ function sendWelcomeEmail($userEmail, $userName, $eventDetails, $ticketCode) {
         return true;
 
     } catch (Exception $e) {
-        // Hata varsa ekrana bas (Localde test ederken)
-        echo "Mail Gönderilemedi: " . $mail->ErrorInfo;
-        die(); 
+        return false;
     }
 }

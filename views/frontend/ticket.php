@@ -1,11 +1,12 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) session_start();
+// 1. DİL DOSYASI
+require_once __DIR__ . '/../../src/Language.php';
 require_once __DIR__ . '/../../src/Database.php';
 $db = new Database();
 
-// Misafir Girişi Kontrolü
 if (!isset($_SESSION['guest_id'])) {
-    header("Location: paylas"); // Giriş yapmamışsa yönlendir
+    header("Location: paylas");
     exit;
 }
 
@@ -15,11 +16,11 @@ $primaryColor = $settings['primary_color'] ?? '#0d6efd';
 $action = 'biletim';
 ?>
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="<?= $currentLang ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Biletim</title>
+    <title><?= $lang['my_ticket'] ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -27,7 +28,7 @@ $action = 'biletim';
 </head>
 <body>
     <div class="container text-center">
-        <h3 class="mb-4">Dijital Biletiniz</h3>
+        <h3 class="mb-4"><?= $lang['digital_ticket'] ?></h3>
         
         <div class="card border-0 mx-auto text-dark" style="max-width: 320px; border-radius: 20px; overflow: hidden;">
             <div class="card-header text-white text-center py-3" style="background-color: <?= $primaryColor ?>">
@@ -40,7 +41,7 @@ $action = 'biletim';
                 <div class="mt-3 badge bg-light text-dark border"><?= $guest['qr_code'] ?></div>
             </div>
             <div class="card-footer bg-light text-muted small">
-                Girişte bu kodu okutunuz.
+                <?= $lang['scan_instruction'] ?>
             </div>
         </div>
     </div>

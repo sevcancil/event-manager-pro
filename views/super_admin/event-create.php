@@ -12,66 +12,90 @@ $db = new Database();
 $message = '';
 $error = '';
 
+// Mevcut Müşterileri Çek (Dropdown için)
+$existingClients = $db->fetchAll("SELECT id, username, full_name FROM users WHERE role = 'client_admin' ORDER BY full_name ASC");
+
 // Form Gönderildi mi?
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // 1. Verileri Al
+    // 1. Etkinlik Bilgileri
     $title = trim($_POST['title']);
     $slug = trim($_POST['slug']);
-    $date = $_POST['date'];
+    $startDate = $_POST['date'];
+    $endDate = $_POST['end_date'];
     $location = trim($_POST['location']);
     
-    // Müşteri Bilgileri
-    $client_name = trim($_POST['client_name']);
-    $client_user = trim($_POST['client_username']);
-    $client_pass = $_POST['client_password'];
+    // Müşteri Seçimi (Yeni mi Mevcut mu?)
+    $clientMode = $_POST['client_mode']; // 'new' veya 'existing'
+    $finalUserId = 0;
 
-    // 2. Basit Doğrulamalar
-    if (empty($title) || empty($slug) || empty($client_user) || empty($client_pass)) {
-        $error = "Lütfen zorunlu alanları doldurun.";
+    // Basit Doğrulamalar
+    if (empty($title) || empty($slug) || empty($startDate) || empty($endDate)) {
+        $error = "Lütfen etkinlik bilgilerini eksiksiz doldurun.";
+    } elseif (strtotime($endDate) < strtotime($startDate)) {
+        $error = "Bitiş tarihi, başlangıç tarihinden önce olamaz.";
     } else {
-        // 3. Slug ve Kullanıcı Adı Müsait mi?
+        
+        // Slug Kontrolü (Herkes için benzersiz olmalı)
         $checkSlug = $db->fetch("SELECT id FROM events WHERE slug = ?", [$slug]);
-        $checkUser = $db->fetch("SELECT id FROM users WHERE username = ?", [$client_user]);
-
         if ($checkSlug) {
             $error = "Bu URL (Slug) zaten başka bir etkinlikte kullanılıyor.";
-        } elseif ($checkUser) {
-            $error = "Bu kullanıcı adı zaten alınmış.";
         } else {
+            
             try {
-                // --- İŞLEM BAŞLIYOR ---
-                
-                // A) Müşteri Kullanıcısını Oluştur
-                $hash = password_hash($client_pass, PASSWORD_DEFAULT);
-                $db->query("INSERT INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)", 
-                    [$client_user, $hash, $client_name, 'client_admin']);
-                
-                $newUserId = $db->lastInsertId(); // Yeni oluşan ID'yi al
+                // --- SENARYO A: YENİ MÜŞTERİ OLUŞTURULACAK ---
+                if ($clientMode === 'new') {
+                    $client_name = trim($_POST['client_name']);
+                    $client_user = trim($_POST['client_username']);
+                    $client_pass = $_POST['client_password'];
 
-                // B) Etkinliği Oluştur ve Kullanıcıya Bağla
-                // Varsayılan ayarlar (JSON)
+                    if (empty($client_user) || empty($client_pass)) {
+                        throw new Exception("Yeni müşteri için kullanıcı adı ve şifre zorunludur.");
+                    }
+
+                    // Kullanıcı adı müsait mi?
+                    $checkUser = $db->fetch("SELECT id FROM users WHERE username = ?", [$client_user]);
+                    if ($checkUser) {
+                        throw new Exception("Bu kullanıcı adı zaten alınmış. Lütfen başka bir tane seçin veya mevcut müşteriyi seçin.");
+                    }
+
+                    // Kullanıcıyı Kaydet
+                    $hash = password_hash($client_pass, PASSWORD_DEFAULT);
+                    $db->query("INSERT INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)", 
+                        [$client_user, $hash, $client_name, 'client_admin']);
+                    
+                    $finalUserId = $db->lastInsertId();
+
+                // --- SENARYO B: MEVCUT MÜŞTERİ SEÇİLDİ ---
+                } else {
+                    $finalUserId = $_POST['existing_user_id'];
+                    if (empty($finalUserId)) {
+                        throw new Exception("Lütfen listeden bir müşteri seçin.");
+                    }
+                }
+
+                // --- ETKİNLİĞİ OLUŞTUR ---
+                
+                // Varsayılan ayarlar
                 $defaultSettings = json_encode([
                     'primary_color' => '#0d6efd',
                     'allow_uploads' => true,
                     'gamification' => true
                 ]);
 
-                $sqlEvent = "INSERT INTO events (user_id, slug, title, event_date, location, settings_json, status) VALUES (?, ?, ?, ?, ?, ?, ?)";
-                $db->query($sqlEvent, [$newUserId, $slug, $title, $date, $location, $defaultSettings, 'active']);
+                $sqlEvent = "INSERT INTO events (user_id, slug, title, event_date, event_end_date, location, settings_json, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                $db->query($sqlEvent, [$finalUserId, $slug, $title, $startDate, $endDate, $location, $defaultSettings, 'active']);
 
-                // C) Klasör Oluştur (Permission Yönetimi)
-                // public/uploads/slug seklinde klasör açar
+                // Klasör Oluştur
                 $uploadDir = __DIR__ . '/../../public/uploads/' . $slug;
                 if (!file_exists($uploadDir)) {
                     mkdir($uploadDir, 0777, true);
-                    // İçine güvenli bir index dosyası koyalım (Listelemeyi engellemek için)
                     file_put_contents($uploadDir . '/index.html', ''); 
                 }
 
-                $message = "Etkinlik ve Müşteri Hesabı Başarıyla Oluşturuldu! 🎉";
+                $message = "Etkinlik Başarıyla Oluşturuldu! 🎉";
                 
             } catch (Exception $e) {
-                $error = "Sistem Hatası: " . $e->getMessage();
+                $error = "Hata: " . $e->getMessage();
             }
         }
     }
@@ -122,52 +146,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                             <span class="input-group-text">site.com/</span>
                                             <input type="text" name="slug" id="eventSlug" class="form-control" readonly style="background-color: #e9ecef;">
                                         </div>
-                                        <div class="form-text">Etkinlik adı girildikçe otomatik oluşur. Türkçe karakter içermez.</div>
                                     </div>
 
                                     <div class="row">
                                         <div class="col-md-6 mb-3">
-                                            <label class="form-label">Tarih & Saat</label>
-                                            <input type="datetime-local" name="date" class="form-control" required>
+                                            <label class="form-label">Başlangıç <span class="text-danger">*</span></label>
+                                            <input type="datetime-local" name="date" id="startDate" class="form-control" required>
                                         </div>
                                         <div class="col-md-6 mb-3">
-                                            <label class="form-label">Konum / Mekan</label>
-                                            <input type="text" name="location" class="form-control" placeholder="Örn: Swissotel Bosphorus">
+                                            <label class="form-label">Bitiş <span class="text-danger">*</span></label>
+                                            <input type="datetime-local" name="end_date" id="endDate" class="form-control" required>
                                         </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">Konum / Mekan</label>
+                                        <input type="text" name="location" class="form-control" placeholder="Örn: Swissotel Bosphorus">
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         <div class="col-md-5">
-                            <div class="card shadow-sm border-primary">
+                            <div class="card shadow-sm border-primary h-100">
                                 <div class="card-header bg-primary text-white fw-bold">2. Müşteri (Admin) Hesabı</div>
                                 <div class="card-body bg-white">
-                                    <div class="alert alert-info py-2" style="font-size: 0.9rem;">
-                                        <i class="fa-solid fa-circle-info"></i> Bu bilgilerle müşteri kendi paneline giriş yapacak.
+                                    
+                                    <div class="mb-4">
+                                        <div class="btn-group w-100" role="group">
+                                            <input type="radio" class="btn-check" name="client_mode" id="modeExisting" value="existing" checked onclick="toggleClientMode()">
+                                            <label class="btn btn-outline-primary" for="modeExisting">Mevcut Müşteri</label>
+
+                                            <input type="radio" class="btn-check" name="client_mode" id="modeNew" value="new" onclick="toggleClientMode()">
+                                            <label class="btn btn-outline-primary" for="modeNew">Yeni Oluştur</label>
+                                        </div>
                                     </div>
 
-                                    <div class="mb-3">
-                                        <label class="form-label">Firma / Yetkili Adı</label>
-                                        <input type="text" name="client_name" class="form-control" placeholder="Örn: Teknosa İK" required>
+                                    <div id="existingClientArea">
+                                        <div class="mb-3">
+                                            <label class="form-label">Müşteri Seçin</label>
+                                            <select name="existing_user_id" class="form-select">
+                                                <option value="">-- Listeden Seçin --</option>
+                                                <?php foreach($existingClients as $client): ?>
+                                                    <option value="<?= $client['id'] ?>">
+                                                        <?= htmlspecialchars($client['full_name']) ?> (<?= htmlspecialchars($client['username']) ?>)
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <div class="form-text">Bu kullanıcı etkinlik paneline mevcut şifresiyle girebilecek.</div>
+                                        </div>
                                     </div>
 
-                                    <div class="mb-3">
-                                        <label class="form-label">Kullanıcı Adı</label>
-                                        <input type="text" name="client_username" class="form-control" required>
+                                    <div id="newClientArea" style="display:none;">
+                                        <div class="mb-3">
+                                            <label class="form-label">Firma / Yetkili Adı</label>
+                                            <input type="text" name="client_name" class="form-control" placeholder="Örn: Teknosa İK">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Kullanıcı Adı</label>
+                                            <input type="text" name="client_username" class="form-control">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Şifre Belirle</label>
+                                            <input type="text" name="client_password" class="form-control" value="<?= substr(str_shuffle('abcdefghjkmnpqrstuvwxyz23456789'), 0, 6); ?>">
+                                        </div>
                                     </div>
 
-                                    <div class="mb-3">
-                                        <label class="form-label">Şifre Belirle</label>
-                                        <input type="text" name="client_password" class="form-control" value="<?= substr(str_shuffle('abcdefghjkmnpqrstuvwxyz23456789'), 0, 6); ?>" required>
-                                        <div class="form-text">Otomatik önerilen şifreyi değiştirebilirsiniz.</div>
-                                    </div>
+                                    <hr>
+                                    <button type="submit" class="btn btn-success w-100 py-3 mt-2 shadow fw-bold">
+                                        <i class="fa-solid fa-check-circle me-2"></i> ETKİNLİĞİ OLUŞTUR
+                                    </button>
+
                                 </div>
                             </div>
-                            
-                            <button type="submit" class="btn btn-success w-100 py-3 mt-3 shadow fw-bold">
-                                <i class="fa-solid fa-check-circle me-2"></i> ETKİNLİĞİ OLUŞTUR
-                            </button>
                         </div>
                     </div>
                 </form>
@@ -177,21 +228,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <script>
+        // Slug Oluşturucu
         document.getElementById('eventTitle').addEventListener('input', function() {
             var title = this.value;
             var slug = title.toLowerCase()
-                .replace(/ğ/g, 'g')
-                .replace(/ü/g, 'u')
-                .replace(/ş/g, 's')
-                .replace(/ı/g, 'i')
-                .replace(/ö/g, 'o')
-                .replace(/ç/g, 'c')
-                .replace(/[^a-z0-9\s-]/g, '') // Harf rakam dışındakileri sil
-                .replace(/\s+/g, '-')         // Boşlukları tire yap
-                .replace(/^-+|-+$/g, '');     // Baştaki sondaki tireleri sil
-            
+                .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's')
+                .replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
+                .replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/^-+|-+$/g, '');
             document.getElementById('eventSlug').value = slug;
         });
+
+        // Tarih Kolaylaştırıcısı
+        document.getElementById('startDate').addEventListener('change', function() {
+            var startVal = this.value;
+            if(startVal && !document.getElementById('endDate').value) {
+                var date = new Date(startVal);
+                date.setHours(date.getHours() + 2);
+                
+                var year = date.getFullYear();
+                var month = String(date.getMonth() + 1).padStart(2, '0');
+                var day = String(date.getDate()).padStart(2, '0');
+                var hours = String(date.getHours()).padStart(2, '0');
+                var minutes = String(date.getMinutes()).padStart(2, '0');
+                
+                document.getElementById('endDate').value = `${year}-${month}-${day}T${hours}:${minutes}`;
+            }
+        });
+
+        // Müşteri Modu Değiştirici (Mevcut / Yeni)
+        function toggleClientMode() {
+            var isNew = document.getElementById('modeNew').checked;
+            var existingArea = document.getElementById('existingClientArea');
+            var newArea = document.getElementById('newClientArea');
+
+            if (isNew) {
+                existingArea.style.display = 'none';
+                newArea.style.display = 'block';
+                // Yeni müşteri seçildiyse inputları required yap (HTML5 validasyonu için)
+                document.querySelector('[name="client_username"]').setAttribute('required', 'required');
+                document.querySelector('[name="existing_user_id"]').removeAttribute('required');
+            } else {
+                existingArea.style.display = 'block';
+                newArea.style.display = 'none';
+                // Mevcut seçildiyse dropdown'u required yap
+                document.querySelector('[name="client_username"]').removeAttribute('required');
+                document.querySelector('[name="existing_user_id"]').setAttribute('required', 'required');
+            }
+        }
     </script>
 
 </body>
