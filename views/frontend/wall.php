@@ -34,16 +34,29 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
 $settings = json_decode($event['settings_json'], true);
 $primaryColor = $settings['primary_color'] ?? '#0d6efd';
 
-// Resimler için KÖK URL'yi bul
+// URL Ayarları
 $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http");
-$folder = dirname($_SERVER['SCRIPT_NAME']);
-$baseUrl = "$protocol://$_SERVER[HTTP_HOST]$folder";
+$baseFolder = dirname($_SERVER['SCRIPT_NAME']);
+if ($baseFolder === '/' || $baseFolder === '\\') $baseFolder = '';
+
+// Kök URL (Resimler için)
+$baseUrl = "$protocol://$_SERVER[HTTP_HOST]$baseFolder";
 $baseUrl = str_replace('\\', '/', $baseUrl);
 if (substr($baseUrl, -1) != '/') $baseUrl .= '/';
 
 // Paylaşım Linki
 $shareLink = str_replace('/akis', '/paylas', "$protocol://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]");
 $shareLink = strtok($shareLink, '?');
+
+// --- ÇERÇEVE AYARI (YENİ EKLENDİ) ---
+$frameSrc = '';
+if (!empty($settings['custom_frame_path'])) {
+    // 1. Özel yüklenen çerçeve varsa onu kullan
+    $frameSrc = $baseUrl . $settings['custom_frame_path'];
+} elseif (file_exists(__DIR__ . '/../../public/assets/img/frame.png')) {
+    // 2. Yoksa ve sistemde varsayılan çerçeve varsa onu kullan
+    $frameSrc = $baseUrl . 'assets/img/frame.png';
+}
 ?>
 
 <!DOCTYPE html>
@@ -65,13 +78,43 @@ $shareLink = strtok($shareLink, '?');
         .slide-item { display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; align-items: center; justify-content: center; }
         .slide-item.active { display: flex; animation: fadeIn 1s; }
         
-        .photo-container { position: relative; max-width: 90%; max-height: 90vh; border-radius: 15px; overflow: hidden; box-shadow: 0 0 50px rgba(0,0,0,0.8); }
-        .photo-container img { max-width: 100%; max-height: 85vh; object-fit: contain; display: block; }
+        /* Fotoğraf Konteyner ve Çerçeve Ayarları */
+        .photo-container { 
+            position: relative; 
+            max-width: 90%; 
+            max-height: 90vh; 
+            /* Border-radius çerçeve ile uyumsuzluk yapabilir, çerçeve kullanılıyorsa kaldıralım veya azaltalım */
+            border-radius: 5px; 
+            overflow: hidden; 
+            box-shadow: 0 0 50px rgba(0,0,0,0.8); 
+        }
+        
+        .photo-container img.main-photo { 
+            max-width: 100%; 
+            max-height: 85vh; 
+            object-fit: contain; 
+            display: block; 
+        }
+        
+        /* Çerçeve Katmanı (Overlay) */
+        .frame-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none; /* Tıklamaları alta geçirir */
+            background-size: 100% 100%; /* Çerçeveyi fotoğrafa tam oturt */
+            background-repeat: no-repeat;
+            background-position: center;
+        }
         
         .photo-caption { 
             position: absolute; bottom: 0; left: 0; right: 0; 
             background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
             color: white; padding: 30px 20px 20px 20px; text-align: left; 
+            z-index: 20; /* Çerçevenin üstünde görünsün */
         }
 
         #sidebar { width: 350px; background: #111; border-left: 1px solid #333; display: flex; flex-direction: column; justify-content: space-between; padding: 40px 20px; text-align: center; color: white; z-index: 10; }
@@ -79,7 +122,6 @@ $shareLink = strtok($shareLink, '?');
         
         .empty-state { color: #666; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
         
-        /* Metin Düzeltmeleri */
         .text-white-50 { color: rgba(255, 255, 255, 0.6) !important; }
     </style>
 </head>
@@ -119,6 +161,9 @@ $shareLink = strtok($shareLink, '?');
     <script>
         const BASE_URL = "<?= $baseUrl ?>";
         const API_URL = window.location.href.split('?')[0] + '?ajax=1';
+        
+        // PHP'den gelen çerçeve URL'sini JS değişkenine al
+        const FRAME_SRC = "<?= $frameSrc ?>";
         
         let photos = [];
         let currentIndex = 0;
@@ -174,13 +219,19 @@ $shareLink = strtok($shareLink, '?');
             photos.forEach((photo, index) => {
                 const noteHtml = photo.note ? `<h4 class="m-0 fw-bold">${photo.note}</h4>` : '';
                 const userHtml = photo.full_name ? `<small class="text-white-50 mt-1 d-block">- ${photo.full_name}</small>` : '';
-                
                 const fullImgPath = BASE_URL + photo.file_path;
+
+                // Çerçeve HTML'i (Varsa ekle)
+                // Çerçeveyi CSS background olarak değil, img overlay olarak eklemek daha sağlıklı olabilir,
+                // ama CSS background-image responsive yapı için daha kolaydır.
+                // Burada style içine background-image olarak gömüyoruz.
+                const frameHtml = FRAME_SRC ? `<div class="frame-overlay" style="background-image: url('${FRAME_SRC}');"></div>` : '';
 
                 html += `
                     <div class="slide-item" id="slide-${index}">
                         <div class="photo-container animate__animated animate__zoomIn">
-                            <img src="${fullImgPath}" alt="Photo" onerror="this.src=''; this.alt='Resim Yüklenemedi'">
+                            <img src="${fullImgPath}" class="main-photo" alt="Photo" onerror="this.src=''; this.alt='Resim Yüklenemedi'">
+                            ${frameHtml}
                             <div class="photo-caption">
                                 ${noteHtml}
                                 ${userHtml}

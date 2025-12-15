@@ -1,7 +1,14 @@
 <?php
 // views/client_admin/navbar.php
 
-// Hangi sayfadayız? (Aktif linki boyamak için)
+// Oturum başlatılmamışsa başlat
+if (session_status() === PHP_SESSION_NONE) session_start();
+
+// Kullanıcının başka etkinliği var mı kontrol et (Butonu göstermek için)
+// Not: $db nesnesi sayfadan geliyor varsayıyoruz.
+$dbCheck = new Database();
+$myEventCount = $dbCheck->rowCount("SELECT id FROM events WHERE user_id = ?", [$_SESSION['user_id']]);
+
 $currentPage = basename($_SERVER['PHP_SELF']);
 ?>
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm py-3">
@@ -57,7 +64,35 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     </a>
                 </li>
 
-            </ul>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        <i class="fa-solid fa-mobile-screen-button me-1 text-warning"></i> Misafir Ekranları
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                        <li>
+                            <a class="dropdown-item" href="../../public/<?= htmlspecialchars($event['slug']) ?>/kayit" target="_blank">
+                                <i class="fa-solid fa-user-plus me-2"></i> Kayıt Sayfası
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="../../public/<?= htmlspecialchars($event['slug']) ?>/anket" target="_blank">
+                                <i class="fa-solid fa-square-poll-vertical me-2"></i> Oylama Ekranı
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="../../public/<?= htmlspecialchars($event['slug']) ?>/paylas" target="_blank">
+                                <i class="fa-solid fa-camera me-2"></i> Anı Paylaş
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item" href="../../public/<?= htmlspecialchars($event['slug']) ?>" target="_blank">
+                                <i class="fa-solid fa-house me-2"></i> Ana Sayfa (Landing)
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                </ul>
 
             <div class="d-flex align-items-center border-start border-secondary ps-lg-3 ms-lg-3 mt-3 mt-lg-0">
                 <div class="text-white text-end me-3 d-none d-lg-block" style="line-height: 1.2;">
@@ -65,6 +100,12 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     <span class="fw-bold"><?= htmlspecialchars($event['title']) ?></span>
                 </div>
                 
+                <?php if ($myEventCount > 1): ?>
+                    <a href="dashboard.php?switch_event=clear" class="btn btn-outline-light btn-sm me-2" title="Etkinlik Değiştir">
+                        <i class="fa-solid fa-repeat"></i>
+                    </a>
+                <?php endif; ?>
+
                 <a href="../../logout.php" class="btn btn-danger btn-sm px-3">
                     <i class="fa-solid fa-power-off"></i>
                 </a>
