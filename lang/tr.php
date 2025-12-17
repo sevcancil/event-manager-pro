@@ -74,5 +74,13 @@ return [
     'nav_program' => 'Program',
     'nav_share' => 'Paylaş',
     'nav_vote' => 'Oyla',
-    'nav_ticket' => 'Biletim'
+    'nav_ticket' => 'Biletim',
+    
+    // ... mevcut kodlar ...
+    'nav_stream' => 'Akış',
+    'stream_title' => 'Canlı Akış',
+    'no_posts_yet' => 'Henüz hiç anı paylaşılmamış. İlk paylaşan sen ol!',
+    'shared_by' => 'Paylaşan:',
+    
+    
 ];

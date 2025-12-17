@@ -1,4 +1,5 @@
 <?php
+// views/super_admin/event-edit.php
 session_start();
 require_once __DIR__ . '/../../src/Auth.php';
 require_once __DIR__ . '/../../src/Database.php';
@@ -32,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // SQL Güncelleme Hazırlığı (Başlangıç değerleri)
     $bannerPathSQL = $event['banner_image']; 
 
-    // 1. BANNER YÜKLEME (YENİ)
+    // 1. BANNER YÜKLEME
     if (!empty($_FILES['banner_image']['name'])) {
         $ext = strtolower(pathinfo($_FILES['banner_image']['name'], PATHINFO_EXTENSION));
         if (in_array($ext, ['png', 'jpg', 'jpeg'])) {
@@ -52,13 +53,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // 3. ÇERÇEVE YÜKLEME
-    if (!empty($_FILES['custom_frame']['name'])) {
-        $ext = strtolower(pathinfo($_FILES['custom_frame']['name'], PATHINFO_EXTENSION));
+    // 3. ÇERÇEVE YÜKLEME (YENİLENMİŞ)
+    
+    // 3a. Yatay Çerçeve (Horizontal)
+    if (!empty($_FILES['custom_frame_h']['name'])) {
+        $ext = strtolower(pathinfo($_FILES['custom_frame_h']['name'], PATHINFO_EXTENSION));
         if ($ext == 'png') {
-            $frameName = 'frame_' . time() . '.png';
-            move_uploaded_file($_FILES['custom_frame']['tmp_name'], $uploadBase . $frameName);
-            $settings['custom_frame_path'] = 'uploads/' . $event['slug'] . '/assets/' . $frameName;
+            $frameName = 'frame_h_' . time() . '.png';
+            move_uploaded_file($_FILES['custom_frame_h']['tmp_name'], $uploadBase . $frameName);
+            $settings['custom_frame_h_path'] = 'uploads/' . $event['slug'] . '/assets/' . $frameName;
+        }
+    }
+
+    // 3b. Dikey Çerçeve (Vertical)
+    if (!empty($_FILES['custom_frame_v']['name'])) {
+        $ext = strtolower(pathinfo($_FILES['custom_frame_v']['name'], PATHINFO_EXTENSION));
+        if ($ext == 'png') {
+            $frameName = 'frame_v_' . time() . '.png';
+            move_uploaded_file($_FILES['custom_frame_v']['tmp_name'], $uploadBase . $frameName);
+            $settings['custom_frame_v_path'] = 'uploads/' . $event['slug'] . '/assets/' . $frameName;
         }
     }
 
@@ -69,7 +82,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $db->query($sql, [$title, $date, $location, $description, $status, $jsonSettings, $bannerPathSQL, $id]);
     
     $message = "Güncelleme Başarılı! ✅";
-    header("Refresh:1");
+    
+    // Sayfayı yenile ki yeni veriler gelsin
+    header("Refresh:1"); 
 }
 ?>
 
@@ -151,12 +166,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <?php endif; ?>
                     </div>
 
-                    <div class="mb-3">
-                        <label>Özel Çerçeve (PNG)</label>
-                        <input type="file" name="custom_frame" class="form-control" accept="image/png">
-                        <?php if(isset($settings['custom_frame_path'])): ?>
-                            <small class="text-success">✔ Yüklü çerçeve var.</small>
-                        <?php endif; ?>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="fw-bold">Yatay Çerçeve (Landscape)</label>
+                            <input type="file" name="custom_frame_h" class="form-control" accept="image/png">
+                            <div class="form-text">Örn: 1920x1080 px, Şeffaf PNG</div>
+                            <?php if(isset($settings['custom_frame_h_path'])): ?>
+                                <small class="text-success">✔ Yüklü yatay çerçeve var.</small>
+                            <?php endif; ?>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="fw-bold">Dikey Çerçeve (Portrait)</label>
+                            <input type="file" name="custom_frame_v" class="form-control" accept="image/png">
+                            <div class="form-text">Örn: 1080x1920 px, Şeffaf PNG</div>
+                            <?php if(isset($settings['custom_frame_v_path'])): ?>
+                                <small class="text-success">✔ Yüklü dikey çerçeve var.</small>
+                            <?php endif; ?>
+                        </div>
                     </div>
 
                     <button type="submit" class="btn btn-primary btn-lg mt-3">Kaydet ve Güncelle</button>

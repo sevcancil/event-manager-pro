@@ -1,7 +1,7 @@
 <?php
 // views/frontend/register.php
 
-// 1. DİL AYARLARINI YÜKLE (En Başta Olmalı)
+// 1. DİL AYARLARINI YÜKLE
 require_once __DIR__ . '/../../src/Language.php'; 
 
 // $event ve $db değişkenleri index.php'den geliyor.
@@ -20,9 +20,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phone = trim($_POST['phone']);
     $company = trim($_POST['company'] ?? '');
     $title = trim($_POST['title'] ?? '');
+    
+    // KVKK Kontrolü (Formdan geliyorsa 1, gelmiyorsa 0)
+    // HTML'de required olduğu için genelde 1 gelir ama veritabanı için işliyoruz.
+    $kvkkApproved = isset($_POST['kvkk']) ? 1 : 0;
 
     if (empty($fullName) || empty($email)) {
-        $error = $lang['err_fill_fields']; // Dil değişkeni kullanıldı
+        $error = $lang['err_fill_fields'];
     } else {
         $check = $db->fetch("SELECT id FROM guests WHERE event_id = ? AND email = ?", [$event['id'], $email]);
         
@@ -32,8 +36,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $qrString = strtoupper(substr(md5($event['id'] . time() . rand()), 0, 10));
 
-                $sql = "INSERT INTO guests (event_id, full_name, email, phone, company, title, qr_code) VALUES (?, ?, ?, ?, ?, ?, ?)";
-                $db->query($sql, [$event['id'], $fullName, $email, $phone, $company, $title, $qrString]);
+                // GÜNCELLENDİ: kvkk_approved alanı eklendi
+                $sql = "INSERT INTO guests (event_id, full_name, email, phone, company, title, qr_code, kvkk_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                $db->query($sql, [$event['id'], $fullName, $email, $phone, $company, $title, $qrString, $kvkkApproved]);
                 
                 // Mail Gönderme
                 $mailServicePath = __DIR__ . '/../../src/MailService.php';
@@ -79,10 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         body { background-color: #f4f6f9; font-family: 'Segoe UI', sans-serif; }
         .register-card { max-width: 500px; margin: 50px auto; border: none; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); overflow: hidden; position: relative; }
         
-        /* Dil Seçici Stili */
-        .lang-switcher {
-            position: absolute; top: 15px; right: 15px; z-index: 50;
-        }
+        .lang-switcher { position: absolute; top: 15px; right: 15px; z-index: 50; }
         .lang-btn {
             background: rgba(255,255,255,0.8); border: 1px solid #ddd;
             color: #333; padding: 4px 8px; border-radius: 20px; text-decoration: none; font-size: 0.75rem; font-weight: bold;
@@ -90,7 +92,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         .lang-btn:hover, .lang-btn.active { background: <?= $primaryColor ?>; color: white; border-color: <?= $primaryColor ?>; }
 
-        /* Bilet Stilleri */
         .ticket-visual { border: 2px solid #eee; border-radius: 15px; background: #fff; overflow: hidden; position: relative; }
         .ticket-header { background-color: <?= $primaryColor ?>; color: white; padding: 20px; text-align: center; }
         .ticket-body { padding: 20px; text-align: center; }
@@ -211,7 +212,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
 
                         <div class="form-check mb-4">
-                            <input class="form-check-input" type="checkbox" required id="kvkk">
+                            <input class="form-check-input" type="checkbox" name="kvkk" required id="kvkk">
                             <label class="form-check-label small text-muted" for="kvkk">
                                 <?= $lang['kvkk_text'] ?>
                             </label>

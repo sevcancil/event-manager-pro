@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </form>
         
         <div class="text-center mt-3 text-muted" style="font-size: 0.8rem;">
-            &copy; 2025 Etkinlik Yönetim A.Ş.
+            &copy; 2025 Milimetre.
         </div>
     </div>
 

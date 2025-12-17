@@ -78,7 +78,7 @@
     <footer class="bg-dark text-white py-4 text-center">
     <div class="container">
         <small>
-            &copy; 2025 <a href="https://sthteam.com/" target="_blank" class="text-white text-decoration-none fw-bold">STH Team</a>. 
+            &copy; 2025 <a href="https://milimetre.com/" target="_blank" class="text-white text-decoration-none fw-bold">Milimetre</a>. 
             Tüm hakları saklıdır.
         </small>
     </div>

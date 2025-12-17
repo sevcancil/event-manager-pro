@@ -39,7 +39,7 @@ $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : 
 $baseFolder = dirname($_SERVER['SCRIPT_NAME']);
 if ($baseFolder === '/' || $baseFolder === '\\') $baseFolder = '';
 
-// Kök URL (Resimler için)
+// Kök URL
 $baseUrl = "$protocol://$_SERVER[HTTP_HOST]$baseFolder";
 $baseUrl = str_replace('\\', '/', $baseUrl);
 if (substr($baseUrl, -1) != '/') $baseUrl .= '/';
@@ -48,14 +48,43 @@ if (substr($baseUrl, -1) != '/') $baseUrl .= '/';
 $shareLink = str_replace('/akis', '/paylas', "$protocol://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]");
 $shareLink = strtok($shareLink, '?');
 
-// --- ÇERÇEVE AYARI (YENİ EKLENDİ) ---
-$frameSrc = '';
-if (!empty($settings['custom_frame_path'])) {
-    // 1. Özel yüklenen çerçeve varsa onu kullan
-    $frameSrc = $baseUrl . $settings['custom_frame_path'];
-} elseif (file_exists(__DIR__ . '/../../public/assets/img/frame.png')) {
-    // 2. Yoksa ve sistemde varsayılan çerçeve varsa onu kullan
-    $frameSrc = $baseUrl . 'assets/img/frame.png';
+// --- ÇERÇEVE AYARLARI (GÜNCELLENMİŞ VERSİYON) ---
+// Mantık: Önce admin panelinden yüklenen özele bak, yoksa sistem klasöründeki varsayılana bak.
+
+// 1. Admin Panelinden Yüklenenler (Veritabanı)
+$dbFrameH = $settings['custom_frame_h_path'] ?? '';
+$dbFrameV = $settings['custom_frame_v_path'] ?? '';
+$dbFrameOld = $settings['custom_frame_path'] ?? ''; // Eski tekli yüklenen varsa yedek
+
+// 2. Sistem Klasöründeki Varsayılanlar
+$sysFrameH = 'assets/img/frame_h.png';
+$sysFrameV = 'assets/img/frame_v.png';
+$sysFrameOld = 'assets/img/frame.png';
+
+// 3. YATAY (Landscape) ÇERÇEVE BELİRLEME
+if (!empty($dbFrameH)) {
+    $urlFrameH = $baseUrl . $dbFrameH; // Admin'den yüklenen yatay
+} elseif (file_exists(__DIR__ . '/../../public/' . $sysFrameH)) {
+    $urlFrameH = $baseUrl . $sysFrameH; // Sistemdeki yatay
+} elseif (!empty($dbFrameOld)) {
+    $urlFrameH = $baseUrl . $dbFrameOld; // Eski usul tekli (yedek)
+} elseif (file_exists(__DIR__ . '/../../public/' . $sysFrameOld)) {
+    $urlFrameH = $baseUrl . $sysFrameOld; // Sistemdeki eski tekli
+} else {
+    $urlFrameH = ''; // Hiçbiri yok
+}
+
+// 4. DİKEY (Portrait) ÇERÇEVE BELİRLEME
+if (!empty($dbFrameV)) {
+    $urlFrameV = $baseUrl . $dbFrameV; // Admin'den yüklenen dikey
+} elseif (file_exists(__DIR__ . '/../../public/' . $sysFrameV)) {
+    $urlFrameV = $baseUrl . $sysFrameV; // Sistemdeki dikey
+} elseif (!empty($dbFrameOld)) {
+    $urlFrameV = $baseUrl . $dbFrameOld; // Eski usul tekli (yedek)
+} elseif (file_exists(__DIR__ . '/../../public/' . $sysFrameOld)) {
+    $urlFrameV = $baseUrl . $sysFrameOld; // Sistemdeki eski tekli
+} else {
+    $urlFrameV = ''; // Hiçbiri yok
 }
 ?>
 
@@ -78,15 +107,15 @@ if (!empty($settings['custom_frame_path'])) {
         .slide-item { display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; align-items: center; justify-content: center; }
         .slide-item.active { display: flex; animation: fadeIn 1s; }
         
-        /* Fotoğraf Konteyner ve Çerçeve Ayarları */
+        /* Fotoğraf Konteyner */
         .photo-container { 
             position: relative; 
+            display: inline-block; /* Resmin boyutuna göre şekil alması için */
             max-width: 90%; 
             max-height: 90vh; 
-            /* Border-radius çerçeve ile uyumsuzluk yapabilir, çerçeve kullanılıyorsa kaldıralım veya azaltalım */
             border-radius: 5px; 
-            overflow: hidden; 
             box-shadow: 0 0 50px rgba(0,0,0,0.8); 
+            line-height: 0; /* Alt boşlukları engeller */
         }
         
         .photo-container img.main-photo { 
@@ -104,8 +133,8 @@ if (!empty($settings['custom_frame_path'])) {
             width: 100%;
             height: 100%;
             z-index: 10;
-            pointer-events: none; /* Tıklamaları alta geçirir */
-            background-size: 100% 100%; /* Çerçeveyi fotoğrafa tam oturt */
+            pointer-events: none;
+            background-size: 100% 100%; /* Çerçeveyi sündürerek oturt */
             background-repeat: no-repeat;
             background-position: center;
         }
@@ -114,7 +143,8 @@ if (!empty($settings['custom_frame_path'])) {
             position: absolute; bottom: 0; left: 0; right: 0; 
             background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
             color: white; padding: 30px 20px 20px 20px; text-align: left; 
-            z-index: 20; /* Çerçevenin üstünde görünsün */
+            z-index: 20; 
+            line-height: 1.5; /* Yazı satır aralığını düzelt */
         }
 
         #sidebar { width: 350px; background: #111; border-left: 1px solid #333; display: flex; flex-direction: column; justify-content: space-between; padding: 40px 20px; text-align: center; color: white; z-index: 10; }
@@ -162,8 +192,9 @@ if (!empty($settings['custom_frame_path'])) {
         const BASE_URL = "<?= $baseUrl ?>";
         const API_URL = window.location.href.split('?')[0] + '?ajax=1';
         
-        // PHP'den gelen çerçeve URL'sini JS değişkenine al
-        const FRAME_SRC = "<?= $frameSrc ?>";
+        // PHP'den gelen çerçeve URL'leri
+        const FRAME_H_URL = "<?= $urlFrameH ?>";
+        const FRAME_V_URL = "<?= $urlFrameV ?>";
         
         let photos = [];
         let currentIndex = 0;
@@ -221,17 +252,15 @@ if (!empty($settings['custom_frame_path'])) {
                 const userHtml = photo.full_name ? `<small class="text-white-50 mt-1 d-block">- ${photo.full_name}</small>` : '';
                 const fullImgPath = BASE_URL + photo.file_path;
 
-                // Çerçeve HTML'i (Varsa ekle)
-                // Çerçeveyi CSS background olarak değil, img overlay olarak eklemek daha sağlıklı olabilir,
-                // ama CSS background-image responsive yapı için daha kolaydır.
-                // Burada style içine background-image olarak gömüyoruz.
-                const frameHtml = FRAME_SRC ? `<div class="frame-overlay" style="background-image: url('${FRAME_SRC}');"></div>` : '';
+                // Çerçeve DIV'ini boş oluşturuyoruz, resim yüklenince JS dolduracak
+                // onload="adjustFrame(this)" bu işi yapacak sihirli kısım
+                const frameDiv = (FRAME_H_URL || FRAME_V_URL) ? '<div class="frame-overlay"></div>' : '';
 
                 html += `
                     <div class="slide-item" id="slide-${index}">
                         <div class="photo-container animate__animated animate__zoomIn">
-                            <img src="${fullImgPath}" class="main-photo" alt="Photo" onerror="this.src=''; this.alt='Resim Yüklenemedi'">
-                            ${frameHtml}
+                            <img src="${fullImgPath}" class="main-photo" alt="Photo" onload="adjustFrame(this)" onerror="this.style.display='none'">
+                            ${frameDiv}
                             <div class="photo-caption">
                                 ${noteHtml}
                                 ${userHtml}
@@ -245,6 +274,25 @@ if (!empty($settings['custom_frame_path'])) {
             showSlide(currentIndex);
         }
 
+        // --- YENİ FONKSİYON: ÇERÇEVEYİ AYARLA ---
+        window.adjustFrame = function(img) {
+            const overlay = img.parentElement.querySelector('.frame-overlay');
+            if (!overlay) return;
+
+            // Resmin doğal boyutlarına bak (Yüklenince çalışır)
+            // Eğer Genişlik > Yükseklik ise -> YATAY
+            if (img.naturalWidth > img.naturalHeight) {
+                if (FRAME_H_URL) {
+                    overlay.style.backgroundImage = `url('${FRAME_H_URL}')`;
+                }
+            } else {
+                // Değilse -> DİKEY
+                if (FRAME_V_URL) {
+                    overlay.style.backgroundImage = `url('${FRAME_V_URL}')`;
+                }
+            }
+        };
+
         function startSlider() {
             if (slideInterval) clearInterval(slideInterval);
             slideInterval = setInterval(() => {
@@ -252,7 +300,7 @@ if (!empty($settings['custom_frame_path'])) {
                     currentIndex = (currentIndex + 1) % photos.length;
                     showSlide(currentIndex);
                 }
-            }, 5000);
+            }, 5000); // 5 Saniyede bir değiş
         }
 
         function showSlide(index) {

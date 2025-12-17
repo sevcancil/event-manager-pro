@@ -74,5 +74,11 @@ return [
     'nav_program' => 'Schedule',
     'nav_share' => 'Share',
     'nav_vote' => 'Vote',
-    'nav_ticket' => 'Ticket'
+    'nav_ticket' => 'Ticket',
+    
+    // ... existing codes ...
+    'nav_stream' => 'Stream',
+    'stream_title' => 'Live Stream',
+    'no_posts_yet' => 'No memories shared yet. Be the first!',
+    'shared_by' => 'Shared by:',
 ];

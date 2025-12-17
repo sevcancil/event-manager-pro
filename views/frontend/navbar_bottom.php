@@ -15,9 +15,11 @@ if (!isset($lang)) {
         border-top: 1px solid rgba(255,255,255,0.1);
         display: flex; justify-content: space-around; padding: 12px 0; z-index: 9999;
     }
+    
     .nav-btn {
         color: #888; text-decoration: none; text-align: center; font-size: 0.7rem;
-        display: flex; flex-direction: column; align-items: center; width: 25%;
+        display: flex; flex-direction: column; align-items: center;
+        flex: 1; /* 5 butonu sığdırmak için width yerine flex:1 kullandık */
         transition: 0.2s;
     }
     .nav-btn i { font-size: 1.4rem; margin-bottom: 4px; }
@@ -32,6 +34,11 @@ if (!isset($lang)) {
     <a href="program" class="nav-btn <?= (isset($action) && $action == 'program') ? 'active' : '' ?>">
         <i class="fa-solid fa-calendar-days"></i> 
         <?= $lang['nav_program'] ?>
+    </a>
+
+    <a href="canli" class="nav-btn <?= (isset($action) && $action == 'canli') ? 'active' : '' ?>">
+        <i class="fa-solid fa-fire"></i> 
+        <?= $lang['nav_stream'] ?>
     </a>
 
     <a href="paylas" class="nav-btn <?= (isset($action) && $action == 'paylas') ? 'active' : '' ?>">

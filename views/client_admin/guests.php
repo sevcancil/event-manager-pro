@@ -9,29 +9,49 @@ $auth->requireRole('client_admin');
 $db = new Database();
 $userId = $_SESSION['user_id'];
 
-// 1. Etkinlik Verisi
-// --- ETKİNLİK SEÇİM KONTROLÜ (GÜNCELLENDİ) ---
+// --- ETKİNLİK KONTROLÜ VE OTOMATİK SEÇİM (DÜZELTME BURADA) ---
 if (!isset($_SESSION['current_event_id'])) {
-    header("Location: dashboard.php");
-    exit;
+    // Eğer seçili etkinlik yoksa, kullanıcının en son oluşturduğu etkinliği bul
+    $latestEvent = $db->fetch("SELECT * FROM events WHERE user_id = ? ORDER BY created_at DESC LIMIT 1", [$userId]);
+    
+    if ($latestEvent) {
+        // Varsa onu otomatik olarak "seçili etkinlik" yap
+        $_SESSION['current_event_id'] = $latestEvent['id'];
+    } else {
+        // Eğer kullanıcının hiç etkinliği yoksa Dashboard'a gönder
+        header("Location: dashboard.php");
+        exit;
+    }
 }
-$eventId = $_SESSION['current_event_id'];
 
-// Sadece oturumdaki ID'ye ve User ID'ye uyan etkinliği çek (Güvenlik için User ID şart)
+$eventId = $_SESSION['current_event_id'];
+// Etkinliğin bu kullanıcıya ait olup olmadığını tekrar doğrula
 $event = $db->fetch("SELECT * FROM events WHERE id = ? AND user_id = ?", [$eventId, $userId]);
 
 if (!$event) {
-    // Eğer session'daki ID veritabanında yoksa (silinmişse vb.)
+    // Geçersiz bir ID varsa oturumdan sil ve geri gönder
     unset($_SESSION['current_event_id']);
     header("Location: dashboard.php");
     exit;
 }
-// ---------------------------------------------
-if (!$event) die("Etkinlik bulunamadı.");
+
+// --- ARAMA FİLTRESİ HAZIRLIĞI ---
+$searchQuery = $_GET['q'] ?? '';
+$sql = "SELECT * FROM guests WHERE event_id = ?";
+$params = [$event['id']];
+
+if (!empty($searchQuery)) {
+    $sql .= " AND (full_name LIKE ? OR company LIKE ? OR email LIKE ?)";
+    $term = '%' . $searchQuery . '%';
+    $params[] = $term;
+    $params[] = $term;
+    $params[] = $term;
+}
+$sql .= " ORDER BY created_at DESC";
 
 // --- EXCEL İNDİRME ---
 if (isset($_GET['export']) && $_GET['export'] == 'excel') {
-    $guests = $db->fetchAll("SELECT * FROM guests WHERE event_id = ? ORDER BY created_at DESC", [$event['id']]);
+    $guests = $db->fetchAll($sql, $params);
     $filename = 'Misafir_Listesi_' . date('Y-m-d') . '.csv';
 
     header('Content-Type: text/csv; charset=utf-8');
@@ -40,22 +60,14 @@ if (isset($_GET['export']) && $_GET['export'] == 'excel') {
     $output = fopen('php://output', 'w');
     fputs($output, $bom =( chr(0xEF) . chr(0xBB) . chr(0xBF) ));
 
-    fputcsv($output, ['ID', 'Ad Soyad', 'Şirket', 'Unvan', 'E-Posta', 'Telefon', 'Durum', 'Giriş Saati (Check-in)', 'Kayıt Tarihi'], ";");
+    fputcsv($output, ['ID', 'Ad Soyad', 'Şirket', 'Unvan', 'E-Posta', 'Telefon', 'Durum', 'Giriş Saati', 'Kayıt Tarihi'], ";");
 
     foreach ($guests as $guest) {
         $status = ($guest['check_in_status'] == 1) ? 'İçeride' : 'Gelmedi';
         $checkInTime = $guest['check_in_at'] ? date('H:i:s', strtotime($guest['check_in_at'])) : '-';
-        
         fputcsv($output, [
-            $guest['id'],
-            $guest['full_name'],
-            $guest['company'],
-            $guest['title'],
-            $guest['email'],
-            $guest['phone'],
-            $status,
-            $checkInTime,
-            $guest['created_at']
+            $guest['id'], $guest['full_name'], $guest['company'], $guest['title'],
+            $guest['email'], $guest['phone'], $status, $checkInTime, $guest['created_at']
         ], ";");
     }
     fclose($output);
@@ -63,14 +75,11 @@ if (isset($_GET['export']) && $_GET['export'] == 'excel') {
 }
 
 // --- HTML LİSTELEME ---
-$guests = $db->fetchAll("SELECT * FROM guests WHERE event_id = ? ORDER BY created_at DESC", [$event['id']]);
-
+$guests = $db->fetchAll($sql, $params);
 $pageTitle = 'Misafir Listesi';
 include __DIR__ . '/../layouts/header.php';
 ?>
-
 <style>
-    /* Global dark tema ayarlarını bu sayfa için eziyoruz */
     body { background-color: #f4f6f9 !important; color: #212529 !important; }
     .card { background-color: #fff !important; }
     .table { color: #212529 !important; }
@@ -79,17 +88,27 @@ include __DIR__ . '/../layouts/header.php';
 </style>
 
 <?php include __DIR__ . '/navbar.php'; ?>
-
 <div class="container">
-    
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4>
-            Misafir Listesi
-            <span class="badge bg-secondary fs-6 align-middle ms-2"><?= count($guests) ?> Kişi</span>
-        </h4>
-        <a href="?export=excel" class="btn btn-success">
-            <i class="fa-solid fa-file-excel me-2"></i> Excel İndir
-        </a>
+    <div class="row align-items-center mb-4">
+        <div class="col-md-6">
+            <h4>
+                Misafir Listesi
+                <span class="badge bg-secondary fs-6 align-middle ms-2"><?= count($guests) ?> Kişi</span>
+            </h4>
+        </div>
+        <div class="col-md-6">
+            <form method="GET" class="d-flex gap-2 justify-content-md-end">
+                <input type="text" name="q" class="form-control w-50" placeholder="İsim, şirket veya e-posta ara..." value="<?= htmlspecialchars($searchQuery) ?>">
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-magnifying-glass"></i> Ara</button>
+                <?php if(!empty($searchQuery)): ?>
+                    <a href="guests.php" class="btn btn-outline-secondary">Temizle</a>
+                <?php endif; ?>
+                
+                <a href="?export=excel&q=<?= htmlspecialchars($searchQuery) ?>" class="btn btn-success text-nowrap">
+                    <i class="fa-solid fa-file-excel"></i> Excel
+                </a>
+            </form>
+        </div>
     </div>
 
     <div class="card shadow-sm border-0">
@@ -103,16 +122,16 @@ include __DIR__ . '/../layouts/header.php';
                             <th>Şirket / Unvan</th> 
                             <th>İletişim</th>
                             <th>Durum</th>
-                            <th>Giriş Saati</th> 
-                            <th>Kayıt Tarihi</th>
+                            <th>Giriş</th> 
+                            <th class="text-end pe-3">İşlemler</th> 
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($guests)): ?>
                             <tr>
                                 <td colspan="7" class="text-center py-5 text-muted">
-                                    <i class="fa-solid fa-user-slash fa-2x mb-3"></i><br>
-                                    Henüz kimse kayıt olmamış.
+                                    <i class="fa-solid fa-search fa-2x mb-3"></i><br>
+                                    Kayıt bulunamadı.
                                 </td>
                             </tr>
                         <?php else: ?>
@@ -129,15 +148,8 @@ include __DIR__ . '/../layouts/header.php';
                                 </td>
 
                                 <td>
-                                    <?php if($guest['company']): ?>
-                                        <div class="fw-semibold text-dark"><?= htmlspecialchars($guest['company']) ?></div>
-                                    <?php else: ?>
-                                        <div class="text-muted">-</div>
-                                    <?php endif; ?>
-                                    
-                                    <?php if($guest['title']): ?>
-                                        <small class="text-muted"><?= htmlspecialchars($guest['title']) ?></small>
-                                    <?php endif; ?>
+                                    <div class="fw-semibold text-dark"><?= htmlspecialchars($guest['company'] ?? '-') ?></div>
+                                    <small class="text-muted"><?= htmlspecialchars($guest['title'] ?? '') ?></small>
                                 </td>
 
                                 <td>
@@ -154,16 +166,13 @@ include __DIR__ . '/../layouts/header.php';
                                 </td>
                                 
                                 <td class="fw-bold text-primary">
-                                    <?php if($guest['check_in_at']): ?>
-                                        <i class="fa-regular fa-clock me-1"></i>
-                                        <?= date('H:i', strtotime($guest['check_in_at'])) ?>
-                                    <?php else: ?>
-                                        <span class="text-muted">-</span>
-                                    <?php endif; ?>
+                                    <?= $guest['check_in_at'] ? date('H:i', strtotime($guest['check_in_at'])) : '-' ?>
                                 </td>
 
-                                <td class="small text-muted">
-                                    <?= date('d.m.Y H:i', strtotime($guest['created_at'])) ?>
+                                <td class="text-end pe-3">
+                                    <a href="print-badge.php?id=<?= $guest['id'] ?>" target="_blank" class="btn btn-sm btn-outline-dark" title="Yaka Kartı Yazdır">
+                                        <i class="fa-solid fa-id-card-clip"></i> <span class="d-none d-lg-inline">Yaka Kartı</span>
+                                    </a>
                                 </td>
                             </tr>
                             <?php endforeach; ?>

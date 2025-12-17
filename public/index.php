@@ -60,6 +60,10 @@ if ($firstSegment == '' || $firstSegment == 'index.php') {
             // Dijital Bilet Görüntüleme
             require_once __DIR__ . '/../views/frontend/ticket.php';
             
+        } elseif ($action == 'canli') {
+            // Mobil Uyumlu Canlı Akış Sayfası
+            require_once __DIR__ . '/../views/frontend/stream.php';
+            
         } elseif ($action == 'akis') {
             // Canlı Duvar (Dosya adı wall.php ama URL'de 'akis' yazıyor)
             require_once __DIR__ . '/../views/frontend/wall.php';
