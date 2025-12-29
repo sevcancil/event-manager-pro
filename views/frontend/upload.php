@@ -5,38 +5,77 @@ if (session_status() === PHP_SESSION_NONE) session_start();
 require_once __DIR__ . '/../../src/Database.php';
 require_once __DIR__ . '/../../src/Language.php';
 
-if (!extension_loaded('gd')) die("Sunucuda GD Library eksik.");
-
 $db = new Database();
-// ... (Event ve Login PHP kodları aynı, sadece HTML güncellendi) ...
-// (PHP kısmını daha önceki en son attığım koddan alabilirsin, burada sadece HTML/CSS'i düzeltiyorum)
+
+// Etkinlik bilgisini al
 if (!isset($event) || empty($event)) {
-    if (isset($_GET['slug'])) { $event = $db->fetch("SELECT * FROM events WHERE slug = ?", [$_GET['slug']]); }
+    // index.php'den gelmediyse URL'den bulmaya çalış
+    if (isset($_GET['slug'])) { 
+        $event = $db->fetch("SELECT * FROM events WHERE slug = ?", [$_GET['slug']]); 
+    }
+    // Hâlâ yoksa hata ver
     if (!$event) die("Etkinlik verisi bulunamadı.");
 }
+
 $settings = json_decode($event['settings_json'], true) ?? [];
 $primaryColor = $settings['primary_color'] ?? '#0d6efd';
-$message = ''; $error = '';
-if (isset($_SESSION['flash_success'])) { $message = $_SESSION['flash_success']; unset($_SESSION['flash_success']); }
+$message = ''; 
+$error = '';
 
-// Giriş ve Upload işlemleri (Önceki kodun aynısı)
+// Giriş İşlemi
 if (isset($_POST['login_guest'])) {
     $email = trim($_POST['email']);
     $guest = $db->fetch("SELECT * FROM guests WHERE event_id = ? AND email = ?", [$event['id'], $email]);
-    if ($guest) { $_SESSION['guest_id'] = $guest['id']; $_SESSION['guest_name'] = $guest['full_name']; header("Location: " . strtok($_SERVER['REQUEST_URI'], '?')); exit; } 
-    else { $error = "Kayıt bulunamadı."; }
-}
-if (isset($_POST['upload_media']) && isset($_SESSION['guest_id'])) {
-    // ... (Upload PHP kodu buraya gelecek - Önceki cevaptan alabilirsin) ...
-    // Hata olmaması için kısaltıyorum ama sen tam kodu kullan.
-    if (isset($_FILES['media_file']) && $_FILES['media_file']['error'] == 0) {
-         // ... (Dosya yükleme mantığı aynı) ...
-         // Sadece test için basit redirect:
-         // header("Location: " . strtok($_SERVER['REQUEST_URI'], '?')); exit;
+    if ($guest) { 
+        $_SESSION['guest_id'] = $guest['id']; 
+        $_SESSION['guest_name'] = $guest['full_name']; 
+        header("Location: " . strtok($_SERVER['REQUEST_URI'], '?')); 
+        exit; 
+    } else { 
+        $error = "Kayıt bulunamadı."; 
     }
 }
+
+// FOTOĞRAF YÜKLEME İŞLEMİ (BURASI DÜZELTİLDİ)
+if (isset($_POST['upload_media']) && isset($_SESSION['guest_id'])) {
+    if (isset($_FILES['media_file']) && $_FILES['media_file']['error'] == 0) {
+        
+        $uploadDir = __DIR__ . '/../../public/uploads/' . $event['slug'] . '/';
+        
+        // Klasör yoksa oluştur
+        if (!file_exists($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+
+        $fileExt = strtolower(pathinfo($_FILES['media_file']['name'], PATHINFO_EXTENSION));
+        $allowed = ['jpg', 'jpeg', 'png', 'gif'];
+
+        if (in_array($fileExt, $allowed)) {
+            // Dosyaya benzersiz isim ver: img_ZAMAN_RASTGELE.jpg
+            $newFileName = 'img_' . time() . '_' . rand(1000,9999) . '.' . $fileExt;
+            $targetPath = $uploadDir . $newFileName;
+            
+            // Veritabanı için yol (public/uploads/...)
+            $dbPath = 'uploads/' . $event['slug'] . '/' . $newFileName;
+
+            if (move_uploaded_file($_FILES['media_file']['tmp_name'], $targetPath)) {
+                // Veritabanına kaydet
+                $db->query("INSERT INTO media_uploads (event_id, guest_id, file_path, is_approved) VALUES (?, ?, ?, 0)", 
+                           [$event['id'], $_SESSION['guest_id'], $dbPath]);
+                
+                $message = "Fotoğraf başarıyla gönderildi! Moderatör onayından sonra yayında olacak.";
+            } else {
+                $error = "Dosya sunucuya taşınırken hata oluştu. Klasör izinlerini kontrol edin.";
+            }
+        } else {
+            $error = "Sadece JPG, PNG ve GIF formatları kabul edilir.";
+        }
+    } else {
+        $error = "Dosya seçilmedi veya yükleme hatası oluştu.";
+    }
+}
+
 $isLoggedIn = isset($_SESSION['guest_id']);
-if (!function_exists('processImage')) { function processImage($f, $s){ return true; } } // Placeholder fonksiyon
 ?>
 
 <!DOCTYPE html>

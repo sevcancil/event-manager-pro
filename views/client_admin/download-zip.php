@@ -12,8 +12,23 @@ $db = new Database();
 $userId = $_SESSION['user_id'];
 
 // Etkinliği bul
-$event = $db->fetch("SELECT * FROM events WHERE user_id = ?", [$userId]);
-if (!$event) die("Etkinlik bulunamadı.");
+// --- ETKİNLİK SEÇİM KONTROLÜ (GÜNCELLENDİ) ---
+if (!isset($_SESSION['current_event_id'])) {
+    header("Location: dashboard.php");
+    exit;
+}
+$eventId = $_SESSION['current_event_id'];
+
+// Sadece oturumdaki ID'ye ve User ID'ye uyan etkinliği çek (Güvenlik için User ID şart)
+$event = $db->fetch("SELECT * FROM events WHERE id = ? AND user_id = ?", [$eventId, $userId]);
+
+if (!$event) {
+    // Eğer session'daki ID veritabanında yoksa (silinmişse vb.)
+    unset($_SESSION['current_event_id']);
+    header("Location: dashboard.php");
+    exit;
+}
+// ---------------------------------------------
 
 // Onaylanmış fotoğrafları çek
 $photos = $db->fetchAll("SELECT file_path FROM media_uploads WHERE event_id = ? AND is_approved = 1", [$event['id']]);

@@ -10,8 +10,23 @@ $db = new Database();
 $userId = $_SESSION['user_id'];
 
 // Navbar'ın çalışması için Event verisi ŞART
-$event = $db->fetch("SELECT * FROM events WHERE user_id = ?", [$userId]);
-if (!$event) die("Etkinlik bulunamadı.");
+// --- ETKİNLİK SEÇİM KONTROLÜ (GÜNCELLENDİ) ---
+if (!isset($_SESSION['current_event_id'])) {
+    header("Location: dashboard.php");
+    exit;
+}
+$eventId = $_SESSION['current_event_id'];
+
+// Sadece oturumdaki ID'ye ve User ID'ye uyan etkinliği çek (Güvenlik için User ID şart)
+$event = $db->fetch("SELECT * FROM events WHERE id = ? AND user_id = ?", [$eventId, $userId]);
+
+if (!$event) {
+    // Eğer session'daki ID veritabanında yoksa (silinmişse vb.)
+    unset($_SESSION['current_event_id']);
+    header("Location: dashboard.php");
+    exit;
+}
+// ---------------------------------------------
 
 // --- YENİ ANKET EKLEME ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_poll'])) {

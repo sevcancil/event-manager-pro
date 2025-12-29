@@ -10,8 +10,23 @@ $db = new Database();
 $userId = $_SESSION['user_id'];
 
 // 1. Etkinlik Verisi (Navbar İçin Şart)
-$event = $db->fetch("SELECT * FROM events WHERE user_id = ?", [$userId]);
-if (!$event) die("Etkinlik bulunamadı.");
+// --- ETKİNLİK SEÇİM KONTROLÜ (GÜNCELLENDİ) ---
+if (!isset($_SESSION['current_event_id'])) {
+    header("Location: dashboard.php");
+    exit;
+}
+$eventId = $_SESSION['current_event_id'];
+
+// Sadece oturumdaki ID'ye ve User ID'ye uyan etkinliği çek (Güvenlik için User ID şart)
+$event = $db->fetch("SELECT * FROM events WHERE id = ? AND user_id = ?", [$eventId, $userId]);
+
+if (!$event) {
+    // Eğer session'daki ID veritabanında yoksa (silinmişse vb.)
+    unset($_SESSION['current_event_id']);
+    header("Location: dashboard.php");
+    exit;
+}
+// ---------------------------------------------
 
 // --- YENİ OTURUM EKLEME ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_session'])) {
@@ -45,7 +60,16 @@ include __DIR__ . '/../layouts/header.php';
     /* Global dark tema ayarlarını bu sayfa için eziyoruz */
     body { background-color: #f4f6f9 !important; color: #212529 !important; }
     .card { background-color: #fff !important; color: #212529 !important; }
-    .table { color: #212529 !important; }
+    
+    /* TABLO DÜZELTMESİ */
+    .table { 
+        color: #212529 !important; /* Tablo yazılarını siyah yap */
+        background-color: #fff !important; /* Tablo zeminini beyaz yap */
+    }
+    .table th, .table td {
+        color: #212529 !important; /* Hücre yazılarını da siyah yap */
+    }
+    
     .text-muted { color: #6c757d !important; }
     label { color: #212529 !important; }
     .form-control {

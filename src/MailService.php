@@ -10,42 +10,35 @@ require_once __DIR__ . '/PHPMailer/PHPMailer.php';
 require_once __DIR__ . '/PHPMailer/SMTP.php';
 
 function sendWelcomeEmail($userEmail, $userName, $eventDetails, $ticketCode) {
+    // Debug kapalı (0) ki sayfa yönlensin
     $mail = new PHPMailer(true);
 
     try {
-        // -----------------------------------------------------------------------
-        // 1. ADRES AYARLARI (DÜZELTİLDİ: /public EKLENDİ)
-        // -----------------------------------------------------------------------
+        // --- 1. ADRES VE LİNK AYARLARI ---
         $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http");
         $domain = $_SERVER['HTTP_HOST'];
-        
-        // ÖNEMLİ: URL yapısını senin istediğin formata sabitledik:
-        // http://domain.com/public
+        // public klasörünü de yola ekliyoruz
         $baseUrl = "$protocol://$domain/public"; 
 
         $eventSlug = !empty($eventDetails['slug']) ? $eventDetails['slug'] : $eventDetails['id'];
         
-        // İSTEDİĞİN LİNKLER:
-        // 1. Biletim: .../public/etkinlik-adi/biletim?code=...
         $ticketLink = "$baseUrl/$eventSlug/biletim?code=$ticketCode";
-        
-        // 2. Etkinlik Sayfası (Program): .../public/etkinlik-adi/program
         $eventLink  = "$baseUrl/$eventSlug/program";
 
-        // -----------------------------------------------------------------------
-        // 2. SMTP AYARLARI (TURHOST UYUMLU)
-        // -----------------------------------------------------------------------
+        // --- 2. SMTP AYARLARI (ÇALIŞAN AYARLAR) ---
         $mail->isSMTP();
-        $mail->Host       = 'localhost'; 
+        $mail->Host       = 'mail.domain.com'; 
         $mail->SMTPAuth   = true;
         $mail->Username   = 'info@domain.com';    
-        $mail->Password   = 'ŞİFRENİ_BURAYA_YAZ'; // <-- BURAYA ŞİFRENİ YAZMAYI UNUTMA!
+        $mail->Password   = 'BURAYA_SIFRE_GIRILECEK'; // <-- Şifreni tekrar buraya yazmalısın!
         
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS; 
-        $mail->Port       = 587;                        
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS; 
+        $mail->Port       = 465;                        
         $mail->CharSet    = 'UTF-8';
+        
+        // Debug kapalı
+        $mail->SMTPDebug  = 0; 
 
-        // Sertifika hatasını önleyen ayar
         $mail->SMTPOptions = array(
             'ssl' => array(
                 'verify_peer' => false,
@@ -57,9 +50,7 @@ function sendWelcomeEmail($userEmail, $userName, $eventDetails, $ticketCode) {
         $mail->setFrom('info@domain.com', 'Etkinlik Yönetimi'); 
         $mail->addAddress($userEmail, $userName);
 
-        // -----------------------------------------------------------------------
-        // 3. TARİH VE TAKVİM LİNKLERİ
-        // -----------------------------------------------------------------------
+        // --- 3. TAKVİM LİNKLERİ (GOOGLE & OUTLOOK) ---
         $gTitle = urlencode($eventDetails['title']);
         $gDetails = urlencode("Etkinlik Detayları: " . ($eventDetails['description'] ?? ''));
         $gLocation = urlencode($eventDetails['location']);
@@ -79,16 +70,12 @@ function sendWelcomeEmail($userEmail, $userName, $eventDetails, $ticketCode) {
         $oEnd   = gmdate('Y-m-d\TH:i:s\Z', $endTimestamp);
         $outlookWebLink = "https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent&startdt=$oStart&enddt=$oEnd&subject=$gTitle&body=$gDetails&location=$gLocation";
 
-        // -----------------------------------------------------------------------
-        // 4. ICS DOSYASI (EK)
-        // -----------------------------------------------------------------------
+        // --- 4. ICS DOSYASI ---
         $icsContent = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//EtkinlikYonetimi//TR\r\nMETHOD:PUBLISH\r\nBEGIN:VEVENT\r\nUID:" . md5(uniqid(mt_rand(), true)) . "@" . $domain . "\r\nDTSTAMP:" . gmdate('Ymd\THis\Z') . "\r\nDTSTART:" . gmdate('Ymd\THis\Z', $startTimestamp) . "\r\nDTEND:" . gmdate('Ymd\THis\Z', $endTimestamp) . "\r\nSUMMARY:" . $eventDetails['title'] . "\r\nDESCRIPTION:" . ($eventDetails['description'] ?? '') . "\r\nLOCATION:" . $eventDetails['location'] . "\r\nEND:VEVENT\r\nEND:VCALENDAR";
 
         $mail->addStringAttachment($icsContent, 'invite.ics', 'base64', 'text/calendar');
 
-        // -----------------------------------------------------------------------
-        // 5. HTML İÇERİK
-        // -----------------------------------------------------------------------
+        // --- 5. HTML İÇERİK (TASARIM) ---
         $mail->isHTML(true);
         $mail->Subject = 'Kaydınız Başarıyla Alındı! - ' . $eventDetails['title'];
         
@@ -135,6 +122,8 @@ function sendWelcomeEmail($userEmail, $userName, $eventDetails, $ticketCode) {
         return true;
 
     } catch (Exception $e) {
+        // Hata olsa bile sessizce loga yaz, kullanıcıya hata gösterme
+        error_log("Mail Error: " . $mail->ErrorInfo);
         return false;
     }
 }
